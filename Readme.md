@@ -5,7 +5,7 @@ One singleton client, full CRUD, automatic audit stamps — set up in seconds.
 
 ---
 
-## Two ways to use (Recommended option-2)
+## Two ways to use
 
 ### Option 1 — Import directly from the package
 
@@ -671,3 +671,143 @@ process.on('SIGINT', async () => {
 ## License
 
 ISC
+
+---
+
+## Populate
+
+Resolve ObjectId references to full documents from other collections — like Mongoose's `.populate()`. Uses `$lookup` under the hood, supports pagination and projection.
+
+### Single reference
+
+```js
+// posts collection: { title, authorId (ObjectId → users) }
+
+const result = await posts.populate(
+    { published: true },
+    [{ field: 'authorId', collection: 'users' }],
+    { limit: 10, skip: 0 },
+);
+
+// result.data[0].authorId is now the full user document:
+// { _id: ..., name: 'Alice', email: 'alice@example.com', ... }
+```
+
+### Multiple references at once
+
+```js
+// orders collection: { total, userId (→ users), productId (→ products) }
+
+const result = await orders.populate(
+    { status: 'paid' },
+    [
+        { field: 'userId',    collection: 'users'    },
+        { field: 'productId', collection: 'products' },
+    ],
+    { limit: 20, skip: 0 },
+);
+
+// result.data[0].userId    → full user document
+// result.data[0].productId → full product document
+```
+
+### Array of ObjectIds
+
+Set `array: true` when the field holds an array of ObjectIds.
+
+```js
+// posts collection: { title, tagIds: [ObjectId, ObjectId, ...] }
+
+const result = await posts.populate(
+    { published: true },
+    [{ field: 'tagIds', collection: 'tags', array: true }],
+);
+
+// result.data[0].tagIds → [ { _id: ..., name: 'mongodb' }, { _id: ..., name: 'nodejs' } ]
+```
+
+### With projection on the joined collection
+
+Only bring in specific fields from the foreign collection.
+
+```js
+const result = await posts.populate(
+    { published: true },
+    [{
+        field:      'authorId',
+        collection: 'users',
+        projection: { name: 1, email: 1 },   // only name and email from users
+    }],
+);
+
+// result.data[0].authorId → { _id: ..., name: 'Alice', email: 'alice@example.com' }
+// password, createdAt etc. are NOT included
+```
+
+### With projection on the result
+
+Apply a projection to the final output after populating.
+
+```js
+const result = await posts.populate(
+    { published: true },
+    [{ field: 'authorId', collection: 'users', projection: { name: 1 } }],
+    {
+        limit:      10,
+        skip:       0,
+        projection: '-__v -updatedAt',    // exclude from final result
+    },
+);
+```
+
+### Paginated (default)
+
+Returns the same shape as `find()`.
+
+```js
+const result = await posts.populate(
+    { published: true },
+    [{ field: 'authorId', collection: 'users' }],
+    { limit: 10, skip: 0, sort: { createdAt: -1 } },
+);
+
+console.log(result.data);        // array of populated documents
+console.log(result.totalDocs);   // total matching
+console.log(result.currentPage); // current page
+console.log(result.totalPages);  // total pages
+console.log(result.hasNextPage); // boolean
+```
+
+### Plain array (no pagination)
+
+```js
+const posts = await posts.populate(
+    { published: true },
+    [{ field: 'authorId', collection: 'users' }],
+    { pagination: false },
+);
+// returns a plain array
+```
+
+### All options
+
+```js
+const result = await posts.populate(
+    filter,           // MongoDB filter
+    [
+        {
+            field:      'authorId',   // field on this collection
+            collection: 'users',      // foreign collection
+            projection: { name: 1 }, // fields to include from foreign doc (optional)
+            array:      false,        // true if field holds an array of ObjectIds
+        },
+    ],
+    {
+        limit:      20,              // default 50
+        skip:       0,               // default 0
+        sort:       { createdAt: -1 }, // default { _id: 1 }
+        pagination: true,            // false for plain array
+        projection: '-password',     // projection on the final output
+    },
+);
+```

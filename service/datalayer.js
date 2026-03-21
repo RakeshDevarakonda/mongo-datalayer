@@ -778,6 +778,138 @@ class DataLayer {
     getCollection() {
         return this._col();
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  POPULATE
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Populate reference fields by resolving ObjectId(s) to full documents
+     * from other collections — similar to Mongoose's `.populate()`.
+     * Uses `$lookup` under the hood.
+     *
+     * @param {object}   filter                     - Filter to find the documents.
+     * @param {object[]} populations                - Array of population configs.
+     * @param {string}   populations[].field        - The field on this collection holding the ObjectId(s).
+     * @param {string}   populations[].collection   - The foreign collection to look up.
+     * @param {object}   [populations[].projection] - Fields to include/exclude from the joined documents.
+     * @param {boolean}  [populations[].array=false] - Set true if the field holds an array of ObjectIds.
+     * @param {object}   [options={}]               - Same options as find(): limit, skip, sort, pagination, projection.
+     * @returns {Promise<object>}
+     *
+     * @example
+     * // Single reference — post.authorId → users collection
+     * const result = await posts.populate(
+     *   { published: true },
+     *   [{ field: 'authorId', collection: 'users' }],
+     *   { limit: 10, skip: 0 },
+     * );
+     *
+     * @example
+     * // Multiple references at once
+     * const result = await orders.populate(
+     *   { status: 'paid' },
+     *   [
+     *     { field: 'userId',    collection: 'users'    },
+     *     { field: 'productId', collection: 'products' },
+     *   ],
+     * );
+     *
+     * @example
+     * // Array of ObjectIds — post.tagIds → tags collection
+     * const result = await posts.populate(
+     *   {},
+     *   [{ field: 'tagIds', collection: 'tags', array: true }],
+     * );
+     * // post.tagIds is now an array of full tag documents
+     *
+     * @example
+     * // With projection on the joined collection
+     * const result = await posts.populate(
+     *   { published: true },
+     *   [{ field: 'authorId', collection: 'users', projection: { name: 1, email: 1 } }],
+     * );
+     */
+    async populate(filter, populations = [], {
+        limit      = 50,
+        skip       = 0,
+        sort       = { _id: 1 },
+        pagination = true,
+        projection,
+    } = {}) {
+        const pipeline = [];
+
+        // Match stage
+        if (Object.keys(filter).length) {
+            pipeline.push({ $match: filter });
+        }
+
+        // One $lookup per population config
+        for (const pop of populations) {
+            const { field, collection, projection: popProjection, array = false } = pop;
+
+            pipeline.push({
+                $lookup: {
+                    from:         collection,
+                    localField:   field,
+                    foreignField: '_id',
+                    as:           field,
+                    ...(popProjection && {
+                        pipeline: [{ $project: popProjection }],
+                    }),
+                },
+            });
+
+            // Single ObjectId field → unwrap the array $lookup produces back to a single object.
+            // Array field (array: true) → leave as an array of documents.
+            if (!array) {
+                pipeline.push({
+                    $unwind: {
+                        path:                       `$${field}`,
+                        preserveNullAndEmptyArrays: true,
+                    },
+                });
+            }
+        }
+
+        // Sort
+        pipeline.push({ $sort: sort });
+
+        // Projection on the final result
+        if (projection) {
+            const proj = typeof projection === 'string'
+                ? selectToProject(projection)
+                : projection;
+            pipeline.push({ $project: proj });
+        }
+
+        // No pagination — plain array
+        if (!pagination) {
+            return this.aggregate(pipeline);
+        }
+
+        // Paginated — count then fetch in parallel
+        const countPipeline = [...pipeline, { $count: 'total' }];
+        const [countResult, data] = await Promise.all([
+            this.aggregate(countPipeline),
+            this.aggregate([...pipeline, { $skip: skip }, { $limit: limit }]),
+        ]);
+
+        const totalDocs   = countResult[0]?.total ?? 0;
+        const currentPage = Math.floor(skip / limit) + 1;
+        const totalPages  = Math.ceil(totalDocs / limit);
+
+        return {
+            data,
+            totalDocs,
+            skip,
+            limit,
+            currentPage,
+            totalPages,
+            hasNextPage: limit * currentPage < totalDocs,
+        };
+    }
+
 }
 
 export default DataLayer;
