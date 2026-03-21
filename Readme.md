@@ -791,7 +791,6 @@ const result = await posts.populate(
     },
 );
 ```
-
 ---
 
 ## Why not Mongoose?
