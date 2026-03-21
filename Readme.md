@@ -5,7 +5,7 @@ One singleton client, full CRUD, automatic audit stamps — set up in seconds.
 
 ---
 
-## Two ways to use
+## Two ways to use (Recommended option-2)
 
 ### Option 1 — Import directly from the package
 
