@@ -1,0 +1,46 @@
+{
+  "name": "mongo-datalayer",
+  "version": "1.4.0",
+  "description": "A zero-boilerplate MongoDB data layer with singleton client and full CRUD support.",
+  "keywords": [
+    "mongodb",
+    "datalayer",
+    "crud",
+    "mongo",
+    "database"
+  ],
+  "license": "ISC",
+  "author": "rakeshdevarakonda",
+  "homepage": "https://github.com/rakeshdevarakonda/mongo-datalayer#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rakeshdevarakonda/mongo-datalayer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rakeshdevarakonda/mongo-datalayer/issues"
+  },
+  "type": "module",
+  "main": "./index.js",
+  "bin": {
+    "mongo-datalayer": "./bin/init.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "bin/",
+    "config/",
+    "service/",
+    "helpers/",
+    "Readme.md"
+  ],
+  "peerDependencies": {
+    "mongodb": "^7.1.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
