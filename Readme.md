@@ -654,26 +654,6 @@ process.on('SIGINT', async () => {
 
 ---
 
-## Why not Mongoose?
-
-| | Mongoose | mongo-datalayer |
-|---|---|---|
-| Schema validation | ✅ | ❌ use Zod / Joi separately |
-| Boilerplate | Heavy | Minimal |
-| Bundle size | Large | Tiny |
-| Raw MongoDB access | Via `.collection()` | Native |
-| Audit stamps | Manual | Automatic |
-| Pagination built-in | ❌ | ✅ |
-| Own the code | ❌ | ✅ via `npx init` |
-
----
-
-## License
-
-ISC
-
----
-
 ## Populate
 
 Resolve ObjectId references to full documents from other collections — like Mongoose's `.populate()`. Uses `$lookup` under the hood, supports pagination and projection.
@@ -811,3 +791,25 @@ const result = await posts.populate(
     },
 );
 ```
+
+---
+
+## Why not Mongoose?
+
+| | Mongoose | mongo-datalayer |
+|---|---|---|
+| Schema validation | ✅ | ❌ use Zod / Joi separately |
+| Boilerplate | Heavy | Minimal |
+| Bundle size | Large | Tiny |
+| Raw MongoDB access | Via `.collection()` | Native |
+| Audit stamps | Manual | Automatic |
+| Pagination built-in | ❌ | ✅ |
+| Own the code | ❌ | ✅ via `npx init` |
+
+---
+
+## License
+
+ISC
+
+---
