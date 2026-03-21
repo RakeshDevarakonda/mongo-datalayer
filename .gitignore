@@ -101,3 +101,6 @@ Thumbs.db
 !.vscode/launch.json
 !.vscode/extensions.json
 .history/
+
+# bin directory
+bin/
