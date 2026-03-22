@@ -1,13 +1,16 @@
 {
   "name": "mongo-datalayer",
-  "version": "1.5.5",
-  "description": "A zero-boilerplate MongoDB data layer with singleton client and full CRUD support.",
+  "version": "2.0.0",
+  "description": "A zero-boilerplate MongoDB data layer with singleton client, full CRUD, and optional document history tracking.",
   "keywords": [
     "mongodb",
     "datalayer",
     "crud",
     "mongo",
-    "database"
+    "database",
+    "audit",
+    "history",
+    "tracking"
   ],
   "license": "ISC",
   "author": "rakeshdevarakonda",
@@ -34,7 +37,6 @@
     "bin/",
     "config/",
     "service/",
-    "helpers/",
     "Readme.md"
   ],
   "peerDependencies": {

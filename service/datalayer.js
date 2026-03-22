@@ -1,6 +1,38 @@
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../config/mongodb.js';
-import { getTimestamp, selectToProject } from '../helpers/datetime.js';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Current Unix timestamp in seconds.
+ * @returns {number}
+ */
+function getTimestamp() {
+    return Math.floor(Date.now() / 1000);
+}
+
+/**
+ * Converts a Mongoose-style select string into a MongoDB projection object.
+ * Rules:
+ *   "+field"  → include (1)
+ *   "-field"  → exclude (0)
+ *   "field"   → include (1)
+ *
+ * @param {string} selectString  e.g. "+name +email -password"
+ * @returns {Record<string, 0|1>}
+ *
+ * @example
+ * selectToProject('+name -password')  // { name: 1, password: 0 }
+ */
+function selectToProject(selectString) {
+    const projection = {};
+    selectString.trim().split(/\s+/).forEach((field) => {
+        if (field.startsWith('+')) projection[field.slice(1)] = 1;
+        else if (field.startsWith('-')) projection[field.slice(1)] = 0;
+        else projection[field] = 1;
+    });
+    return projection;
+}
 
 /**
  * @class DataLayer
@@ -830,6 +862,35 @@ class DataLayer {
      *   [{ field: 'authorId', collection: 'users', projection: { name: 1, email: 1 } }],
      * );
      */
+    /**
+     * Populate reference fields using $lookup.
+     *
+     * Each population config supports:
+     *   field        — local field holding the ObjectId(s)
+     *   collection   — foreign collection to join
+     *   foreignField — field on foreign collection to match (default: '_id')
+     *   as           — output field name (default: same as field)
+     *   projection   — fields to include/exclude from joined docs
+     *   array        — true if local field holds an array of ObjectIds
+     *   filter       — extra $match filter on the joined docs
+     *
+     * @example
+     * await orders.populate(
+     *   { status: 'paid' },
+     *   [
+     *     {
+     *       field:        'userId',
+     *       foreignField: '_id',
+     *       collection:   'users',
+     *       as:           'customer',
+     *       projection:   { name: 1, email: 1 },
+     *       filter:       { active: true },
+     *       array:        false,
+     *     },
+     *   ],
+     *   { limit: 20, skip: 0, sort: { createdAt: -1 }, pagination: true },
+     * );
+     */
     async populate(filter, populations = [], {
         limit      = 50,
         skip       = 0,
@@ -846,26 +907,63 @@ class DataLayer {
 
         // One $lookup per population config
         for (const pop of populations) {
-            const { field, collection, projection: popProjection, array = false } = pop;
+            const {
+                field,
+                collection,
+                foreignField = '_id',       // which field on the foreign collection to match
+                as           = field,        // output field name — defaults to same as local field
+                projection:  popProjection,  // fields to include/exclude from joined docs
+                array        = false,        // true if local field holds an array of ObjectIds
+                filter:      popFilter,      // extra filter applied to joined docs
+            } = pop;
+
+            // Build the sub-pipeline for the $lookup
+            const lookupPipeline = [];
+
+            // Apply extra filter on joined docs
+            if (popFilter && Object.keys(popFilter).length) {
+                lookupPipeline.push({ $match: popFilter });
+            }
+
+            // Apply projection on joined docs
+            if (popProjection) {
+                lookupPipeline.push({ $project: popProjection });
+            }
 
             pipeline.push({
                 $lookup: {
-                    from:         collection,
-                    localField:   field,
-                    foreignField: '_id',
-                    as:           field,
-                    ...(popProjection && {
-                        pipeline: [{ $project: popProjection }],
-                    }),
+                    from:     collection,
+                    as,
+                    ...(lookupPipeline.length > 0
+                        // Extended $lookup with pipeline (supports foreignField + sub-pipeline)
+                        ? {
+                            let:      { localVal: `$${field}` },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: Array.isArray([])
+                                            ? { $in:  ['$$localVal', `$${foreignField}`] }
+                                            : { $eq:  [`$${foreignField}`, '$$localVal'] },
+                                    },
+                                },
+                                ...lookupPipeline,
+                            ],
+                        }
+                        // Simple $lookup (no sub-pipeline needed)
+                        : {
+                            localField:   field,
+                            foreignField,
+                        }
+                    ),
                 },
             });
 
-            // Single ObjectId field → unwrap the array $lookup produces back to a single object.
-            // Array field (array: true) → leave as an array of documents.
+            // Single ObjectId → $unwind to collapse array back to single object
+            // Array of ObjectIds → leave as array of full documents
             if (!array) {
                 pipeline.push({
                     $unwind: {
-                        path:                       `$${field}`,
+                        path:                       `$${as}`,
                         preserveNullAndEmptyArrays: true,
                     },
                 });
@@ -875,7 +973,7 @@ class DataLayer {
         // Sort
         pipeline.push({ $sort: sort });
 
-        // Projection on the final result
+        // Projection on the final output document
         if (projection) {
             const proj = typeof projection === 'string'
                 ? selectToProject(projection)
@@ -888,7 +986,7 @@ class DataLayer {
             return this.aggregate(pipeline);
         }
 
-        // Paginated — count then fetch in parallel
+        // Paginated — count and fetch in parallel
         const countPipeline = [...pipeline, { $count: 'total' }];
         const [countResult, data] = await Promise.all([
             this.aggregate(countPipeline),
