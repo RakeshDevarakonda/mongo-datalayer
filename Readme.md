@@ -8,7 +8,7 @@ Connect once, use everywhere — full CRUD, automatic audit stamps, built-in pag
 ## Table of Contents
 
 - [Install](#install)
-- [Two ways to use](#two-ways-to-use)
+- [Three ways to use](#three-ways-to-use)
 - [Connect](#connect)
 - [DataLayer](#datalayer)
   - [Create](#create)
@@ -37,9 +37,9 @@ Connect once, use everywhere — full CRUD, automatic audit stamps, built-in pag
 
 ---
 
-## Two ways to use (Recommended option-2)
+## Two ways to use 
 
-### Option 1 — Import directly from the package
+### Option 1 — Import directly from the package (Not Recommended)
 
 ```bash
 npm install mongo-datalayer mongodb
@@ -55,7 +55,7 @@ import { connect, DataLayer, TrackedDataLayer, configureTracker, getHistory, get
 
 ---
 
-### Option 2 — Copy files into your project *(recommended)*
+### Option 2 — Copy files into your project *(Recommended)*
 
 Copy the source files directly into your project so you own and can edit the code freely.
 
@@ -83,6 +83,8 @@ import DataLayer              from './service/datalayer.js';
 ```
 
 ---
+
+### Option 3 — Copy files into your project *(Recommended)*
 
 **DataLayer + TrackedDataLayer:**
 

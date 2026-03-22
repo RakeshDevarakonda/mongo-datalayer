@@ -1,6 +1,6 @@
 {
   "name": "mongo-datalayer",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A zero-boilerplate MongoDB data layer with singleton client, full CRUD, and optional document history tracking.",
   "keywords": [
     "mongodb",
