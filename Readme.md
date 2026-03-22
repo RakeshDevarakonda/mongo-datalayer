@@ -39,7 +39,7 @@ Connect once, use everywhere — full CRUD, automatic audit stamps, built-in pag
 
 ## Two ways to use 
 
-### Option 1 — Import directly from the package (Not Recommended)
+### Option 1 — Import directly from the package
 
 ```bash
 npm install mongo-datalayer mongodb
